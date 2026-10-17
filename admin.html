@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ms"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow"><title>Admin</title>
+<style>
+:root{--bg:#f9fafb;--fg:#111827;--mut:#6b7280;--card:#fff;--bd:#e5e7eb;--ac:#059669;--er:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1110;--fg:#ecfdf5;--mut:#9ca3af;--card:#121a18;--bd:#24312e;--ac:#10b981;--er:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px}
+.w{max-width:720px;margin:0 auto}h1{font-size:20px;margin:0 0 12px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:inherit;font:inherit}
+button{padding:8px 12px;border:0;border-radius:9px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:transparent;color:var(--fg);border:1px solid var(--bd)}button.r{background:var(--er)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>input{flex:1;min-width:120px}
+code{font:13px ui-monospace,Menlo,Consolas,monospace;word-break:break-all}.m{color:var(--mut);font-size:13px}
+.k{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start;padding:10px 0;border-top:1px solid var(--bd)}
+.k:first-child{border-top:0}.b{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--bd);white-space:nowrap}
+.b.on{color:var(--ac);border-color:var(--ac)}.b.rev{color:var(--er);border-color:var(--er)}
+#msg{min-height:20px;font-size:14px;margin:6px 0}#msg.e{color:var(--er)}
+textarea{width:100%;min-height:90px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:inherit;font:13px ui-monospace,Menlo,Consolas,monospace}
+</style></head><body><div class="w">
+<h1>Admin: Key Peranti</h1>
+<div class="c"><div class="row"><input id="s" type="password" placeholder="ADMIN_SECRET" autocomplete="off"><button id="go">Masuk / Muat semula</button></div><div id="msg" class="m"></div></div>
+<div id="panel" hidden>
+<div class="c"><div class="row"><input id="n" type="number" min="1" max="50" value="5" style="max-width:90px"><button id="gen">Buat key baru</button></div>
+<textarea id="out" readonly hidden></textarea></div>
+<div class="c" id="list"></div>
+</div></div>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},secret='';
+function say(t,e){var m=$('msg');m.textContent=t||'';m.className=e?'e':'m'}
+function api(b){b.secret=secret;return fetch('/api/admin',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.text().then(function(t){var j=null;try{j=JSON.parse(t)}catch(e){}if(r.status===404)throw new Error('API tidak dijumpai (404). Folder api belum ter-upload.');if(!j)throw new Error('Jawapan pelik ('+r.status+')');if(!j.ok)throw new Error({auth:'ADMIN_SECRET salah.',rate:'Terlalu banyak cubaan. Tunggu 15 minit.',config:'Tetapan belum lengkap: '+(j.miss||[]).join(', '),origin:'Origin tidak sah.',server:'Ralat pelayan: '+(j.msg||'')}[j.err]||('Ralat: '+j.err));return j})})}
+function d(t){return t?new Date(t).toLocaleString('ms-MY'):'-'}
+function load(){say('Memuatkan...');return api({a:'list'}).then(function(j){say('');$('panel').hidden=false;var L=$('list');L.textContent='';
+ j.rows.slice().reverse().forEach(function(r){var e=document.createElement('div');e.className='k';
+  var l=document.createElement('div');var c=document.createElement('code');c.textContent=r.key;l.appendChild(c);
+  var m=document.createElement('div');m.className='m';m.textContent=r.bound?('Aktif: '+d(r.at)+' | Terakhir: '+d(r.last)+(r.ua?' | '+r.ua.slice(0,60):'')):'Belum digunakan';l.appendChild(m);e.appendChild(l);
+  var a=document.createElement('div');a.className='row';var b=document.createElement('span');b.className='b'+(r.rev?' rev':r.bound?' on':'');b.textContent=r.rev?'Dibatalkan':r.bound?'Terikat':'Kosong';a.appendChild(b);
+  function btn(t,cls,act,q){var x=document.createElement('button');x.textContent=t;x.className=cls;x.onclick=function(){if(q&&!confirm(q))return;api({a:act,serial:r.serial}).then(load).catch(function(er){say(er.message,1)})};a.appendChild(x)}
+  if(r.bound)btn('Set semula','g','reset','Set semula key '+r.serial+'? Peranti lama akan hilang akses dan key boleh diikat pada peranti baharu.');
+  if(r.rev)btn('Pulihkan','g','unrevoke');else btn('Batalkan','r','revoke','Batalkan key '+r.serial+'? Ia tidak boleh digunakan lagi.');
+  e.appendChild(a);L.appendChild(e)})}).catch(function(e){$('panel').hidden=true;say(e.message,1)})}
+$('go').onclick=function(){secret=$('s').value;if(!secret){say('Masukkan ADMIN_SECRET.',1);return}load()};
+$('s').addEventListener('keydown',function(e){if(e.key==='Enter')$('go').click()});
+$('gen').onclick=function(){api({a:'gen',n:Number($('n').value)||1}).then(function(j){var o=$('out');o.hidden=false;o.value=j.keys.join('\n');load()}).catch(function(e){say(e.message,1)})};
+})();
+</script></body></html>
